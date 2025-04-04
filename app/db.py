@@ -1,28 +1,14 @@
-import json
 import os
-import random
-import string
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.orm import sessionmaker
+from dotenv import load_dotenv
 
-DB_FILE =  "data.json"
-url_db = {}
+load_dotenv()
 
-def generate_short_code(length: int = 6):
-    return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
+DB_URL = (
+    f"postgresql+asyncpg://{os.getenv('POSTGRES_USER')}:{os.getenv('POSTGRES_PASSWORD')}"
+    f"@{os.getenv('POSTGRES_HOST')}:{os.getenv('POSTGRES_PORT')}/{os.getenv('POSTGRES_DB')}"
+)
 
-def save_db():
-    serializable_db = {
-        code: {
-            "url": str(entry["url"]),
-            "clicks": entry["clicks"]
-        }
-        for code, entry in url_db.items()
-    }
-
-    with open(DB_FILE, "w") as f:
-        json.dump(serializable_db, f)
-
-def load_db():
-    global url_db
-    if os.path.exists(DB_FILE):
-        with open(DB_FILE, "r") as f:
-            url_db = json.load(f)
+engine = create_async_engine(DB_URL, echo=True)
+async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)

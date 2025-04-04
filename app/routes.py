@@ -3,7 +3,7 @@ from fastapi.responses import RedirectResponse
 from .models import URLItem
 from fastapi import Request
 from fastapi.responses import HTMLResponse
-from .db import url_db, generate_short_code, save_db
+from .db_json import url_db, generate_short_code, save_db
 import re
 from fastapi import Form
 from fastapi.templating import Jinja2Templates

@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from . import routes, db
+from . import routes, db_json
 
 
 app = FastAPI()
