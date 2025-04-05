@@ -19,3 +19,10 @@ class URL(Base):
     clicks = Column(Integer, default=0)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+class ClickLog(Base):
+    __tablename__ = "click_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    short_code = Column(String(20), index=True, nullable=False)
+    timestamp = Column(DateTime, default=datetime.utcnow)

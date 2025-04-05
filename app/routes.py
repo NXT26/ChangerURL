@@ -6,7 +6,7 @@ from .crud import (
     get_url_by_code,
     create_short_url,
     increment_clicks,
-    get_click_stats, deactivate_url
+    get_click_stats, deactivate_url, log_click
 )
 from .models import URLItem
 import re
@@ -45,6 +45,7 @@ async def redirect_url_code(code: str, db: AsyncSession = Depends(get_session)):
         raise HTTPException(status_code=403, detail="Ссылка деактивирована")
 
     await increment_clicks(db, code)
+    await log_click(db, code)
     return RedirectResponse(url=url.target_url)
 
 

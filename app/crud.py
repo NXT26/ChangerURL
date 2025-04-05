@@ -1,6 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
-from .models import URL
+from .models import URL, ClickLog
 from typing import Optional
 
 async def get_url_by_code(db: AsyncSession, code:str)-> Optional[URL]:
@@ -34,6 +34,11 @@ async def deactivate_url(db: AsyncSession, code: str):
         .where(URL.short_code == code)
         .values(is_active=False)
     )
+    await db.commit()
+
+async def log_click(db: AsyncSession, short_code: str):
+    log = ClickLog(short_code=short_code)
+    db.add(log)
     await db.commit()
 
 
