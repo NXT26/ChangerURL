@@ -1,105 +1,54 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import RedirectResponse
+from sqlalchemy.ext.asyncio import AsyncSession
+from .db import async_session, get_session
+from .crud import (
+    get_url_by_code,
+    create_short_url,
+    increment_clicks,
+    get_click_stats
+)
 from .models import URLItem
-from fastapi import Request
-from fastapi.responses import HTMLResponse
-from .db_json import url_db, generate_short_code, save_db
 import re
-from fastapi import Form
-from fastapi.templating import Jinja2Templates
-
-
-
+import random
+import string
 
 router = APIRouter()
-templates = Jinja2Templates(directory="templates")
 
-@router.get("/")
-async def root():
-    return {"message": "Доброе утро, пора писать укорачиватель"}
-
-@router.get("/{code}")
-async def redirect_url_code(code: str):
-    item = url_db.get(code)
-
-    if not item:
-        raise HTTPException(status_code=404, detail="Short URL not found")
-    item["clicks"] += 1
-    save_db()
-    return RedirectResponse(url=item["url"])
+def generate_short_code(length: int = 6):
+    return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
 
 
 @router.post("/api/shorten")
-async def shorten_url(item: URLItem, ):
-    if item.custom_code:
-        code = item.custom_code
-        if not re.fullmatch(r"[a-zA-Z0-9]{3,20}", code):
-            raise HTTPException(
-                status_code=422,
-                detail="Код должен содержать только буквы и цифры и быть от 3 до 20 символов"
-            )
-        if code in url_db:
-            raise HTTPException(status_code=409, detail="Кажется этот код уже занят")
-    else:
-        code = generate_short_code()
+async def shorten_url(item: URLItem, db: AsyncSession = Depends(get_session)):
+    code = item.custom_code or generate_short_code()
 
-        while code in url_db:
-            code = generate_short_code()
+    if not re.fullmatch(r"[a-zA-Z0-9]{3,20}", code):
+        raise HTTPException(status_code=422, detail="Код должен содержать только буквы и цифры и быть от 3 до 20 символов")
 
-    url_db[code] = {
-        "url": item.target_url,
-        "clicks": 0
-    }
+    existing = await get_url_by_code(db, code)
+    if existing:
+        raise HTTPException(status_code=409, detail="Код уже занят")
 
-    save_db()
+    await create_short_url(db, code, str(item.target_url))
 
     return {"short_url": f"http://localhost:8000/{code}"}
 
-@router.post("/shorten")
-async def process_form(
-        request: Request,
-        target_url: str = Form(...),
-        custom_code: str = Form(None)
-):
-    code = custom_code if custom_code else generate_short_code()
 
-    if custom_code:
-        if not re.fullmatch(r"[a-zA-Z0-9]{3,20}", custom_code):
-            return templates.TemplateResponse("form.html", {
-                "request": request,
-                "error": "Код должен содержать только буквы и цифры и быть от 3 до 20 символов"
-            })
-        if code in url_db:
-            return templates.TemplateResponse("form.html",{
-                "request": request,
-                "error": "Этот код уже занят"
-            })
-    else:
-        while code in url_db:
-            code = generate_short_code()
+@router.get("/{code}")
+async def redirect_url_code(code: str, db: AsyncSession = Depends(get_session)):
+    url = await get_url_by_code(db, code)
 
-    url_db [code] ={
-        "url": target_url,
-        "clicks":0
-    }
-    save_db()
+    if not url:
+        raise HTTPException(status_code=404, detail="Short URL not found")
 
-    short_url = f"http://localhost:8000/{code}"
-
-    return templates.TemplateResponse("form.html",{
-        "request": request,
-        "short_url": short_url
-    })
+    await increment_clicks(db, code)
+    return RedirectResponse(url=url.target_url)
 
 
 @router.get("/stats/{code}")
-async def get_status(code: str):
-    item = url_db.get(code)
-    if not item:
-        raise HTTPException(status_code=404, detail="Short URL not found")
-    return {"url": item["url"], "clicks": item["clicks"]}
-
-
-@router.get("/shorten", response_class=HTMLResponse)
-async def show_form(request: Request):
-    return templates.TemplateResponse("form.html", {"request": request})
+async def get_status(code: str, db: AsyncSession = Depends(get_session)):
+    stats = await get_click_stats(db, code)
+    if not stats:
+        raise HTTPException(status_code=404, detail="Ссылка не найдена")
+    return stats

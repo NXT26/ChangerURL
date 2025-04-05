@@ -1,8 +1,7 @@
 from fastapi import FastAPI
-from . import routes, db_json
+from . import routes
 
 
 app = FastAPI()
 
-db.load_db()
 app.include_router(routes.router)
