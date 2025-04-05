@@ -28,6 +28,14 @@ async def get_click_stats(db: AsyncSession, code: str ) -> Optional[dict]:
         return {"url": url.target_url, "clicks": url.clicks}
     return None
 
+async def deactivate_url(db: AsyncSession, code: str):
+    await db.execute(
+        update(URL)
+        .where(URL.short_code == code)
+        .values(is_active=False)
+    )
+    await db.commit()
+
 
 
 

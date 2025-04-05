@@ -6,7 +6,7 @@ from .crud import (
     get_url_by_code,
     create_short_url,
     increment_clicks,
-    get_click_stats
+    get_click_stats, deactivate_url
 )
 from .models import URLItem
 import re
@@ -41,6 +41,8 @@ async def redirect_url_code(code: str, db: AsyncSession = Depends(get_session)):
 
     if not url:
         raise HTTPException(status_code=404, detail="Short URL not found")
+    if not url.is_active:
+        raise HTTPException(status_code=403, detail="Ссылка деактивирована")
 
     await increment_clicks(db, code)
     return RedirectResponse(url=url.target_url)
@@ -52,3 +54,16 @@ async def get_status(code: str, db: AsyncSession = Depends(get_session)):
     if not stats:
         raise HTTPException(status_code=404, detail="Ссылка не найдена")
     return stats
+
+
+@router.post("/api/deactivate/{code}")
+async def deactivate(code: str, db: AsyncSession = Depends(get_session)):
+    url = await get_url_by_code(db, code)
+    if not url:
+        raise HTTPException(status_code=404, detail="Ссылка не найдена")
+
+    if not url.is_active:
+        return {"message": "Ссылка уже неактивна"}
+
+    await deactivate_url(db, code)
+    return {"message": f"Ссылка {code} успешно деактивирована"}
