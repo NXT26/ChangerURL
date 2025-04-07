@@ -2,6 +2,9 @@ from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from .db import async_session, get_session
+import qrcode
+from io import BytesIO
+from fastapi.responses import StreamingResponse
 from .crud import (
     get_url_by_code,
     create_short_url,
@@ -17,6 +20,18 @@ router = APIRouter()
 
 def generate_short_code(length: int = 6):
     return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
+
+
+def generate_qr_code(url: str):
+    qr = qrcode.QRCode(version=1, box_size=10, border=5)
+    qr.add_data(url)
+    qr.make(fit=True)
+    img = qr.make_image(fill="black", back_color="white")
+
+    buffer = BytesIO()
+    img.save(buffer, format="PNG")
+    buffer.seek(0)
+    return buffer
 
 
 @router.post("/api/shorten")
@@ -68,3 +83,13 @@ async def deactivate(code: str, db: AsyncSession = Depends(get_session)):
 
     await deactivate_url(db, code)
     return {"message": f"Ссылка {code} успешно деактивирована"}
+
+@router.get("/qr/{code}")
+async def get_qr(code: str, db: AsyncSession = Depends(get_session)):
+    url = await get_url_by_code(db, code)
+    if not url:
+        raise HTTPException(status_code=404, detail="Код не найден")
+
+    short_url = f"http://localhost:8000/{url.short_code}"
+    qr_image = generate_qr_code(short_url)
+    return StreamingResponse(qr_image, media_type="image/png")
