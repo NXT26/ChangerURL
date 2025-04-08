@@ -31,7 +31,11 @@ async def increment_clicks(db:AsyncSession, code: str):
 async def get_click_stats(db: AsyncSession, code: str ) -> Optional[dict]:
     url = await get_url_by_code(db,code)
     if url:
-        return {"url": url.target_url, "clicks": url.clicks}
+        return {
+            "url": url.target_url,
+            "clicks": url.clicks,
+            "expires_at": url.expires_at.isoformat() if url.expires_at else None
+        }
     return None
 
 async def deactivate_url(db: AsyncSession, code: str):
