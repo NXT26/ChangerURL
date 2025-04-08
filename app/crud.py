@@ -2,13 +2,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
 from .models import URL, ClickLog
 from typing import Optional
+from datetime import timedelta, datetime
+
 
 async def get_url_by_code(db: AsyncSession, code:str)-> Optional[URL]:
     result  = await db.execute(select(URL).where(URL.short_code == code))
     return result.scalar_one_or_none()
 
-async def create_short_url(db: AsyncSession, short_code: str, target_url: str):
-    new_url = URL(short_code=short_code, target_url=target_url)
+async def create_short_url(db: AsyncSession, short_code: str, target_url: str, expire_seconds: Optional[int] = None):
+    expires_at = None
+    if expire_seconds:
+        expires_at = datetime.utcnow() + timedelta(seconds=expire_seconds)
+
+    new_url = URL(short_code=short_code, target_url=target_url, expires_at=expires_at)
     db.add(new_url)
     await db.commit()
     await db.refresh(new_url)

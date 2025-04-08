@@ -7,6 +7,7 @@ from pydantic import BaseModel, HttpUrl
 class URLItem(BaseModel):
     target_url: HttpUrl
     custom_code: Optional[str]=None
+    expire_seconds: Optional[int] = None
 
 Base = declarative_base()
 
@@ -19,6 +20,7 @@ class URL(Base):
     clicks = Column(Integer, default=0)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+    expires_at = Column(DateTime, nullable=True)
 
 class ClickLog(Base):
     __tablename__ = "click_logs"

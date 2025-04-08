@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -47,7 +49,7 @@ async def shorten_url(item: URLItem, db: AsyncSession = Depends(get_session)):
     if existing:
         raise HTTPException(status_code=409, detail="Код уже занят")
 
-    await create_short_url(db, code, str(item.target_url))
+    await create_short_url(db, code, str(item.target_url), item.expire_seconds)
 
     return {"short_url": f"http://localhost:8000/{code}"}
 
@@ -58,8 +60,9 @@ async def redirect_url_code(code: str, db: AsyncSession = Depends(get_session)):
 
     if not url:
         raise HTTPException(status_code=404, detail="Short URL not found")
-    if not url.is_active:
-        raise HTTPException(status_code=403, detail="Ссылка деактивирована")
+
+    if url.expires_at and url.expires_at < datetime.utcnow():
+        raise HTTPException(status_code=410, detail="Срок действия ссылки истёк")
 
     await increment_clicks(db, code)
     await log_click(db, code)
