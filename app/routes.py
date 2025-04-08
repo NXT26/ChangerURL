@@ -1,7 +1,8 @@
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from .db import async_session, get_session
+from .db import get_session
+from .metrics import track_time, REQUEST_TIME, QR_CODE_GENERATION_TIME
 import qrcode
 from io import BytesIO
 from fastapi.responses import StreamingResponse
@@ -21,7 +22,7 @@ router = APIRouter()
 def generate_short_code(length: int = 6):
     return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
 
-
+@track_time(QR_CODE_GENERATION_TIME)
 def generate_qr_code(url: str):
     qr = qrcode.QRCode(version=1, box_size=10, border=5)
     qr.add_data(url)
@@ -35,6 +36,7 @@ def generate_qr_code(url: str):
 
 
 @router.post("/api/shorten")
+@track_time(REQUEST_TIME)
 async def shorten_url(item: URLItem, db: AsyncSession = Depends(get_session)):
     code = item.custom_code or generate_short_code()
 
