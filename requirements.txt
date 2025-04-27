@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+asyncpg
+SQLAlchemy[asyncio]
+alembic
+python-dotenv
+prometheus_client
+qrcode[pil]
+prometheus-fastapi-instrumentator
